@@ -1,0 +1,168 @@
+CREATE DATABASE UniDB;
+GO
+USE UniDB;
+GO
+
+CREATE TABLE Faculties (
+    FacID INT PRIMARY KEY IDENTITY(1,1),
+    FacName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE EducationTypes (
+    TypeID INT PRIMARY KEY IDENTITY(1,1),
+    TypeName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Curriculums (
+    CurrID INT PRIMARY KEY IDENTITY(1,1),
+    YearNum INT NOT NULL,
+    FacID INT NOT NULL,
+    TypeID INT NOT NULL,
+    TotalHours INT,
+    ClassHours INT,
+    CONSTRAINT FK_Curriculums_Faculties FOREIGN KEY (FacID) REFERENCES Faculties(FacID),
+    CONSTRAINT FK_Curriculums_Types FOREIGN KEY (TypeID) REFERENCES EducationTypes(TypeID)
+);
+
+CREATE TABLE Students (
+    StudID INT PRIMARY KEY IDENTITY(1,1),
+    LastName NVARCHAR(25) NOT NULL,
+    FirstName NVARCHAR(25) NOT NULL,
+    MiddleName NVARCHAR(25),
+    BirthDate DATE,
+    EnterDate DATE,
+    Grade FLOAT
+);
+
+CREATE TABLE StudyRecords (
+    StudID INT NOT NULL,
+    CurrID INT NOT NULL,
+    CONSTRAINT PK_StudyRecords PRIMARY KEY (StudID, CurrID),
+    CONSTRAINT FK_Records_Students FOREIGN KEY (StudID) REFERENCES Students(StudID),
+    CONSTRAINT FK_Records_Curriculums FOREIGN KEY (CurrID) REFERENCES Curriculums(CurrID)
+);
+
+INSERT INTO Faculties (FacName) VALUES
+('ФПМ'),
+('ФПК'),
+('ФИТ');
+
+INSERT INTO EducationTypes (TypeName) VALUES
+('Очная'),
+('Заочная');
+
+INSERT INTO Curriculums (YearNum, FacID, TypeID, TotalHours, ClassHours) VALUES
+(1, 1, 1, 310, 190),
+(1, 1, 2, 270, 140),
+(2, 2, 1, 340, 210),
+(3, 2, 2, 295, 155),
+(3, 3, 1, 360, 220),
+(4, 3, 2, 305, 165),
+(4, 1, 1, 350, 215),
+(1, 2, 1, 325, 185),
+(2, 3, 2, 280, 145),
+(2, 1, 2, 250, 120);
+
+INSERT INTO Students (LastName, FirstName, MiddleName, BirthDate, EnterDate, Grade) VALUES
+('Петров', 'Олег', NULL, '2001-03-17', '2019-09-01', 8.2),
+('Андреев', 'Кирилл', 'В', '2001-06-05', '2018-09-01', 6.4),
+('Василенко', 'Алина', NULL, '2000-05-28', '2020-09-01', 9.1),
+('Матвеев', 'Андрей', 'О', '1998-04-11', '2017-09-01', 7.0),
+('Вилейко', 'Максим', NULL, '2001-11-25', '2019-09-01', 5.5),
+('Смирнова', 'Алена', 'P', '2004-03-28', '2018-09-01', 8.8),
+('Морозова', 'Милана', NULL, '2002-07-07', '2020-09-01', 6.9),
+('Козлова', 'Ирина', 'М', '1997-01-15', '2017-09-01', 7.6),
+('Максимов', 'Никита', NULL, '2001-11-02', '2019-09-01', 9.5),
+('Иванов', 'Максим', 'Н', '2000-06-18', '2018-09-01', 6.1);
+
+INSERT INTO StudyRecords (StudID, CurrID) VALUES
+(1, 1), (2, 2), (3, 3), (4, 4), (5, 5),
+(6, 6), (7, 7), (8, 8), (9, 9), (10, 10);
+GO
+
+CREATE PROCEDURE CountStudentsByFacAndType
+    @FacName NVARCHAR(50),
+    @TypeName NVARCHAR(50)
+AS
+BEGIN
+    SELECT COUNT(s.StudID) AS StudentsCount
+    FROM Students s
+    JOIN StudyRecords sr ON s.StudID = sr.StudID
+    JOIN Curriculums c ON sr.CurrID = c.CurrID
+    JOIN Faculties f ON c.FacID = f.FacID
+    JOIN EducationTypes et ON c.TypeID = et.TypeID
+    WHERE f.FacName = @FacName AND et.TypeName = @TypeName;
+END;
+GO
+
+CREATE PROCEDURE GetCurriculumStats
+    @FPK_Count INT OUTPUT,
+    @FPM_Count INT OUTPUT,
+    @TotalCount INT OUTPUT,
+    @DuplicateYears INT OUTPUT
+AS
+BEGIN
+    SELECT @FPK_Count = COUNT(*)
+    FROM Curriculums c
+    JOIN Faculties f ON c.FacID = f.FacID
+    WHERE f.FacName = 'ФПК';
+
+    SELECT @FPM_Count = COUNT(*)
+    FROM Curriculums c
+    JOIN Faculties f ON c.FacID = f.FacID
+    WHERE f.FacName = 'ФПМ';
+
+    SELECT @TotalCount = COUNT(*)
+    FROM Curriculums;
+
+    SELECT @DuplicateYears = COUNT(*)
+    FROM (
+        SELECT YearNum
+        FROM Curriculums
+        GROUP BY YearNum
+        HAVING COUNT(*) > 1
+    ) AS DupYears;
+
+    PRINT 'ФПК: ' + CAST(@FPK_Count AS NVARCHAR(10));
+    PRINT 'ФПМ: ' + CAST(@FPM_Count AS NVARCHAR(10));
+    PRINT 'Всего: ' + CAST(@TotalCount AS NVARCHAR(10));
+    PRINT 'Повторов лет: ' + CAST(@DuplicateYears AS NVARCHAR(10));
+END;
+GO
+
+CREATE PROCEDURE AddNewStudent
+    @LastName NVARCHAR(25),
+    @FirstName NVARCHAR(25),
+    @MiddleName NVARCHAR(25),
+    @BirthDate DATE,
+    @EnterDate DATE,
+    @FacName NVARCHAR(50),
+    @TypeName NVARCHAR(50)
+AS
+BEGIN
+    DECLARE @CurrID INT;
+
+    SELECT @CurrID = c.CurrID
+    FROM Curriculums c
+    JOIN Faculties f ON c.FacID = f.FacID
+    JOIN EducationTypes et ON c.TypeID = et.TypeID
+    WHERE f.FacName = @FacName AND et.TypeName = @TypeName AND c.YearNum = 1;
+
+    INSERT INTO Students (LastName, FirstName, MiddleName, BirthDate, EnterDate, Grade)
+    VALUES (@LastName, @FirstName, @MiddleName, @BirthDate, @EnterDate, 0);
+
+    DECLARE @NewStudID INT = SCOPE_IDENTITY();
+
+    INSERT INTO StudyRecords (StudID, CurrID)
+    VALUES (@NewStudID, @CurrID);
+
+    PRINT N'Студент добавлен';
+END;
+GO
+
+EXEC CountStudentsByFacAndType 'ФПМ', 'Очная';
+
+DECLARE @FPK INT, @FPM INT, @Total INT, @DupYears INT;
+EXEC GetCurriculumStats @FPK OUTPUT, @FPM OUTPUT, @Total OUTPUT, @DupYears OUTPUT;
+
+EXEC AddNewStudent 'Николаев', 'Владимир', 'П', '2003-04-12', '2021-09-01', 'ФПМ', 'Очная';
