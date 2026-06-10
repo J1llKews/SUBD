@@ -1,0 +1,210 @@
+CREATE DATABASE lab3;
+GO
+USE lab3;
+GO
+
+CREATE TABLE Faculties (
+    FacID INT PRIMARY KEY IDENTITY(1,1),
+    FacName NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE StudyForms (
+    FormID INT PRIMARY KEY IDENTITY(1,1),
+    FormType NVARCHAR(50) NOT NULL
+);
+
+CREATE TABLE StudyPlans (
+    PlanID INT PRIMARY KEY IDENTITY(1,1),
+    CourseNum INT NOT NULL,
+    FacID INT NOT NULL,
+    FormID INT NOT NULL,
+    TotalHours INT,
+    PractHours INT,
+    CONSTRAINT FK_Plans_Faculties FOREIGN KEY (FacID) REFERENCES Faculties(FacID),
+    CONSTRAINT FK_Plans_Forms FOREIGN KEY (FormID) REFERENCES StudyForms(FormID)
+);
+
+CREATE TABLE Applicants (
+    PersonID INT PRIMARY KEY IDENTITY(1,1),
+    LastName NVARCHAR(25) NOT NULL,
+    FirstName NVARCHAR(25) NOT NULL,
+    Patronymic NVARCHAR(25),
+    BirthDate DATE,
+    EnterDate DATE,
+    AvgScore FLOAT
+);
+
+CREATE TABLE Admission (
+    PersonID INT NOT NULL,
+    PlanID INT NOT NULL,
+    CONSTRAINT PK_Admission PRIMARY KEY (PersonID, PlanID),
+    CONSTRAINT FK_Admission_Applicants FOREIGN KEY (PersonID) REFERENCES Applicants(PersonID),
+    CONSTRAINT FK_Admission_Plans FOREIGN KEY (PlanID) REFERENCES StudyPlans(PlanID)
+);
+
+INSERT INTO Faculties (FacName) VALUES
+('ФПМ'),
+('ФПК'),
+('ФИТ');
+
+INSERT INTO StudyForms (FormType) VALUES
+('Очная'),
+('Заочная');
+
+INSERT INTO StudyPlans (CourseNum, FacID, FormID, TotalHours, PractHours) VALUES
+(1, 1, 1, 310, 190),
+(1, 1, 2, 270, 140),
+(2, 2, 1, 340, 210),
+(3, 2, 2, 295, 155),
+(3, 3, 1, 360, 220),
+(4, 3, 2, 305, 165),
+(4, 1, 1, 350, 215),
+(1, 2, 1, 325, 185),
+(2, 3, 2, 280, 145),
+(2, 1, 2, 250, 120);
+
+INSERT INTO Applicants (LastName, FirstName, Patronymic, BirthDate, EnterDate, AvgScore) VALUES
+('Петров', 'Олег', NULL, '2001-03-17', '2019-09-01', 8.2),
+('Андреев', 'Кирилл', 'В', '2001-06-05', '2018-09-01', 6.4),
+('Василенко', 'Алина', NULL, '2000-05-28', '2020-09-01', 9.1),
+('Матвеев', 'Андрей', 'О', '1998-04-11', '2017-09-01', 7.0),
+('Вилейко', 'Максим', NULL, '2001-11-25', '2019-09-01', 5.5),
+('Смирнова', 'Алена', 'P', '2004-03-28', '2018-09-01', 8.8),
+('Морозова', 'Милана', NULL, '2002-07-07', '2020-09-01', 6.9),
+('Козлова', 'Ирина', 'М', '1997-01-15', '2017-09-01', 7.6),
+('Максимов', 'Никита', NULL, '2001-11-02', '2019-09-01', 9.5),
+('Иванов', 'Максим', 'Н', '2000-06-18', '2018-09-01', 6.1);
+
+INSERT INTO Admission (PersonID, PlanID) VALUES
+(1, 1), (2, 2), (3, 3), (4, 4), (5, 5),
+(6, 6), (7, 7), (8, 8), (9, 9), (10, 10);
+GO
+
+SELECT a.LastName, a.FirstName, a.Patronymic, f.FacName, p.CourseNum 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE sf.FormType = 'Заочная' AND DATEDIFF(YEAR, a.BirthDate, GETDATE()) < 37;
+
+SELECT f.FacName, COUNT(ad.PersonID) AS StudCount 
+FROM Faculties f
+JOIN StudyPlans p ON f.FacID = p.FacID
+JOIN Admission ad ON p.PlanID = ad.PlanID
+GROUP BY f.FacName;
+
+SELECT sf.FormType, COUNT(ad.PersonID) AS StudCount 
+FROM StudyForms sf
+JOIN StudyPlans p ON sf.FormID = p.FormID
+JOIN Admission ad ON p.PlanID = ad.PlanID
+GROUP BY sf.FormType;
+
+SELECT f.FacName, AVG(DATEDIFF(YEAR, a.BirthDate, GETDATE())) AS AvgAge 
+FROM Faculties f
+JOIN StudyPlans p ON f.FacID = p.FacID
+JOIN Admission ad ON p.PlanID = ad.PlanID
+JOIN Applicants a ON ad.PersonID = a.PersonID
+GROUP BY f.FacName;
+
+SELECT a.LastName, a.FirstName, a.EnterDate, f.FacName, p.CourseNum, sf.FormType 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE a.Patronymic IS NULL;
+
+SELECT TOP 1 f.FacName, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+WHERE YEAR(a.EnterDate) = 2015
+GROUP BY f.FacName
+ORDER BY StudCount DESC;
+
+SELECT f.FacName, sf.FormType, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE YEAR(a.EnterDate) = 2014
+GROUP BY f.FacName, sf.FormType;
+
+SELECT DISTINCT f.FacName 
+FROM Faculties f
+JOIN StudyPlans p ON f.FacID = p.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE sf.FormType = 'Заочная';
+
+SELECT f.FacName, sf.FormType, p.CourseNum 
+FROM Faculties f
+JOIN StudyPlans p ON f.FacID = p.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+ORDER BY f.FacName, sf.FormType, p.CourseNum;
+
+SELECT f.FacName, sf.FormType, COUNT(ad.PersonID) AS StudCount 
+FROM Faculties f
+JOIN StudyPlans p ON f.FacID = p.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+JOIN Admission ad ON p.PlanID = ad.PlanID
+GROUP BY f.FacName, sf.FormType
+ORDER BY f.FacName;
+
+SELECT f.FacName, sf.FormType, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE p.CourseNum IN (1, 3)
+GROUP BY f.FacName, sf.FormType;
+
+SELECT f.FacName, p.CourseNum, COUNT(a.PersonID) AS ForeignCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+WHERE a.Patronymic IS NULL
+GROUP BY f.FacName, p.CourseNum
+ORDER BY f.FacName, p.CourseNum;
+
+SELECT f.FacName, p.CourseNum, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+WHERE a.AvgScore > 7.5
+GROUP BY f.FacName, p.CourseNum
+ORDER BY f.FacName, p.CourseNum;
+
+SELECT f.FacName, sf.FormType, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE DATEDIFF(YEAR, a.BirthDate, GETDATE()) > 45
+GROUP BY f.FacName, sf.FormType
+ORDER BY f.FacName;
+
+SELECT f.FacName, sf.FormType, p.CourseNum, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+JOIN StudyForms sf ON p.FormID = sf.FormID
+WHERE DATEDIFF(YEAR, a.BirthDate, GETDATE()) < 27
+GROUP BY f.FacName, sf.FormType, p.CourseNum
+ORDER BY f.FacName, sf.FormType, p.CourseNum;
+
+SELECT f.FacName, COUNT(a.PersonID) AS StudCount 
+FROM Applicants a
+JOIN Admission ad ON a.PersonID = ad.PersonID
+JOIN StudyPlans p ON ad.PlanID = p.PlanID
+JOIN Faculties f ON p.FacID = f.FacID
+WHERE a.LastName LIKE 'С%'
+GROUP BY f.FacName
+ORDER BY f.FacName;
