@@ -1,0 +1,96 @@
+CREATE DATABASE lab5;
+GO
+USE lab5;
+GO
+
+CREATE TABLE Employees (
+    EmpID INT PRIMARY KEY IDENTITY(1,1),
+    EmpName NVARCHAR(50),
+    EmpSurname NVARCHAR(50),
+    BirthDate DATE
+);
+
+CREATE TABLE Categories (
+    CatID INT PRIMARY KEY IDENTITY(1,1),
+    CatName NVARCHAR(50)
+);
+
+CREATE TABLE Products (
+    ProdID INT PRIMARY KEY IDENTITY(1,1),
+    ProdTitle NVARCHAR(100),
+    CatID INT,
+    Price INT,
+    FOREIGN KEY (CatID) REFERENCES Categories(CatID)
+);
+
+INSERT INTO Employees (EmpName, EmpSurname, BirthDate) VALUES
+(N'Генадий', N'Букин', '1997-03-12'),
+(N'Жора', N'Хряпов', '1993-08-20'),
+(N'Аркадий', N'Паровозов', '2002-07-17');
+
+INSERT INTO Categories (CatName) VALUES 
+(N'Электроника'), 
+(N'Автомобили');
+
+INSERT INTO Products (ProdTitle, CatID, Price) VALUES
+(N'Кирпич', 1, 15),
+(N'Ноутбук', 1, 25000),
+(N'Лада Гранта', 2, 850000),
+(N'УАЗ Буханка', 2, 1200000);
+GO
+
+CREATE FUNCTION GetAge (@BirthDay DATE)
+RETURNS INT
+AS
+BEGIN
+    RETURN FLOOR(DATEDIFF(DAY, @BirthDay, GETDATE()) / 365.25);
+END;
+GO
+
+SELECT EmpName, EmpSurname, dbo.GetAge(BirthDate) AS Age
+FROM Employees
+WHERE dbo.GetAge(BirthDate) > 25;
+GO
+
+CREATE FUNCTION GetProductsByCategory (@CatTitle NVARCHAR(50))
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT p.ProdID, p.ProdTitle, p.Price
+    FROM Products p
+    JOIN Categories c ON p.CatID = c.CatID
+    WHERE c.CatName = @CatTitle
+);
+GO
+
+SELECT * FROM dbo.GetProductsByCategory(N'Электроника');
+GO
+
+CREATE FUNCTION FullName (@Name NVARCHAR(50), @Surname NVARCHAR(50))
+RETURNS NVARCHAR(110)
+AS
+BEGIN
+    RETURN @Surname + ' ' + @Name;
+END;
+GO
+
+SELECT dbo.FullName(EmpName, EmpSurname) AS EmployeeName
+FROM Employees;
+GO
+
+CREATE FUNCTION AvgPriceByCategory (@TargetCatID INT)
+RETURNS INT
+AS
+BEGIN
+    RETURN (
+        SELECT COALESCE(AVG(Price), 0)
+        FROM Products
+        WHERE CatID = @TargetCatID
+    );
+END;
+GO
+
+SELECT CatName, dbo.AvgPriceByCategory(CatID) AS AveragePrice
+FROM CATEGORIES;
+GO
